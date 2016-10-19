@@ -47,7 +47,7 @@ public:
 			_infos[i]._ch = i;
 		}
 	}
-
+	//压缩
 	const char* Compress(char* fileName)
 	{
 		assert(fileName);
@@ -89,11 +89,12 @@ public:
 				c <<= 1;
 				c |= code[i]-'0';
 				num++;
-			}
-			if(num==8)
-			{
-				fputc(c, fIn);
-				num = 0;
+
+				if(num == 8)
+				{
+					fputc(c, fIn);
+					num = 0;
+				}
 			}
 
 			ch = fgetc(fOut);
@@ -105,10 +106,97 @@ public:
 		}
 		fputc(c, fIn);
 
+		//写配置文件
+		string configFileName = fileName;
+		configFileName += ".config";
+		FILE* fInConfig = fopen(configFileName.c_str(), "w");
+
+		string line;
+		char s_count[256];
+		for(int i=0; i<256; ++i)
+		{
+			if(_infos[i]._count != 0)
+			{
+				line.push_back(_infos[i]._ch);
+				line.push_back(',');
+				itoa(_infos[i]._count, s_count, 10);
+				line += s_count;
+				line += '\n';
+
+				fputs(line.c_str(), fInConfig);
+				line.clear();
+			}
+		}
+
+		fclose(fInConfig);
 		fclose(fOut);
 		fclose(fIn);
 
 		return CompressFileName.c_str();
+	}
+	//解压
+	const char* UnCompress(const char* fileName)
+	{
+		assert(fileName);
+
+		string name= fileName;
+		size_t index = name.rfind('.');
+		string configFileName = name.substr(0, index);
+		string uncompressFileName = configFileName + ".uncompress";
+		configFileName += ".config";
+
+		//将配置文件中的信息读入_infos中
+		FILE* foutConfig = fopen(configFileName.c_str(), "r");
+		assert(foutConfig);
+		string line;
+		while(_ReadLine(foutConfig, line))
+		{
+			_infos[line[0]]._ch = line[0];
+			string count = line.substr(2, line.size()-2);
+			_infos[line[0]]._count = atoi(count.c_str());
+
+			line.clear();
+		}
+
+		//重建HuffmanTree
+		CharInfo invalid;
+		HuffmanTree<CharInfo> h(_infos, 256, invalid);
+
+		//解压缩
+		FILE* fOut = fopen(fileName, "r");
+		FILE* fIn = fopen(uncompressFileName.c_str(), "w");
+		char ch = fgetc(fOut);
+		int pos = 7;
+		HuffmanTreeNode<CharInfo>* root = h.GetRoot();
+		assert(root);
+		HuffmanTreeNode<CharInfo>* cur = root;
+		LongType total = root->_weight._count; //根节点的权重._count为字符出现总次数
+
+		while(ch != EOF)
+		{
+			while(pos >= 0 && total>0)
+			{
+				if((ch & (1<<pos)) == 0)
+					cur = cur->_left;
+				else
+					cur = cur->_right;
+				
+				--pos;
+				if(cur->_left== NULL && cur->_right==NULL)
+				{
+					fputc(cur->_weight._ch, fIn);
+					cur = root;
+					--total;
+				}
+			}
+			pos = 7;
+			ch = fgetc(fOut);
+		}
+
+		fclose(foutConfig);
+		fclose(fIn);
+		fclose(fOut);
+		return uncompressFileName.c_str();
 	}
 protected:
 	void CreateHuffmanCode(HuffmanTreeNode<CharInfo>* root, string code)
@@ -125,6 +213,21 @@ protected:
 		CreateHuffmanCode(root->_left, code+'0');
 		CreateHuffmanCode(root->_right, code+'1');
 
+	}
+
+	bool _ReadLine(FILE* fout, string& line)
+	{
+		assert(fout);
+		char c = fgetc(fout);
+		while(c!=EOF && c!='\n')
+		{
+			line.push_back(c);
+			c = fgetc(fout);
+		}
+		if(line.size() == 0)
+			return false;
+		else
+			return true;
 	}
 protected:
 	CharInfo _infos[256];

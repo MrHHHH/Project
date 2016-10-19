@@ -77,6 +77,22 @@ public:
 	{
 		return _root;
 	}
+	~HuffmanTree()
+	{
+		_DestoryTree(_root);
+		_root = NULL;
+	}
+protected:
+	void _DestoryTree(Node* root)
+	{
+		if(root == NULL)
+			return;
+		_DestoryTree(root->_left);
+		_DestoryTree(root->_right);
+
+		delete root;
+		root = NULL;
+	}
 protected:
 	Node* _root;
 };

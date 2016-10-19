@@ -9,9 +9,25 @@
 #include "FileCompress.h"
 using namespace std;
 
-int main()
+
+void TestCompress()
 {
 	FileCompress fc;
-	fc.Compress("source.txt");
+	 char* fileName = "source.txt";
+	fc.Compress(fileName);
+}
+
+void TestUncompress()
+{
+	FileCompress fc;
+	const char* fileName = "source.txt";
+	string compressFileName = fileName;
+	compressFileName += ".compress";
+	fc.UnCompress(compressFileName.c_str());
+}
+int main()
+{
+	//TestCompress();
+	TestUncompress();
 	return 0;
 }
