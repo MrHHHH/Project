@@ -15,6 +15,7 @@ void TestCompress()
 	FileCompress fc;
 	 char* fileName = "source.txt";
 	fc.Compress(fileName);
+	cout << "Ñ¹Ëõ" << endl;
 }
 
 void TestUncompress()
@@ -24,10 +25,12 @@ void TestUncompress()
 	string compressFileName = fileName;
 	compressFileName += ".compress";
 	fc.UnCompress(compressFileName.c_str());
+	cout << "½âÑ¹Ëõ" << endl;
 }
 int main()
 {
-	//TestCompress();
+	TestCompress();
 	TestUncompress();
+	system("pause");
 	return 0;
 }

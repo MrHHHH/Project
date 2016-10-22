@@ -5,10 +5,13 @@
 #include "HuffmanTree.h"
 using namespace std;
 
+//问题：处理哈夫曼编码>=8位的字符，这些字符没必要压缩
+
+
 typedef long long LongType;
 struct CharInfo
 {
-	char _ch;
+	unsigned char _ch;
 	LongType _count; //字符出现次数
 	string _code; //字符对应的huffman编码
 
@@ -52,11 +55,13 @@ public:
 	{
 		assert(fileName);
 
-		FILE* fOut = fopen(fileName, "r");
+		FILE* fOut = fopen(fileName, "rb");
 		assert(fOut);
-		char ch = fgetc(fOut);
+
+		//处理汉字，char放不下
+		unsigned char ch = fgetc(fOut);
 		//统计字符出现的个数
-		while(ch != EOF)
+		while(!feof(fOut))
 		{
 			_infos[ch]._count++;
 			ch = fgetc(fOut);
@@ -73,14 +78,14 @@ public:
 		//压缩文件
 		string CompressFileName = fileName;
 		CompressFileName += ".compress";
-		FILE* fIn = fopen(CompressFileName.c_str(), "w");
+		FILE* fIn = fopen(CompressFileName.c_str(), "wb");
 		assert(fIn);
 
 		char c = 0; //一个字节（8位）的内容
 		int num = 0; //当前字节的位数
 		fseek(fOut, 0, SEEK_SET);
 		ch = fgetc(fOut);
-		while(ch != EOF)
+		while(!feof(fOut))
 		{
 			string& code = _infos[ch]._code;
 			int size = code.size();
@@ -109,7 +114,7 @@ public:
 		//写配置文件
 		string configFileName = fileName;
 		configFileName += ".config";
-		FILE* fInConfig = fopen(configFileName.c_str(), "w");
+		FILE* fInConfig = fopen(configFileName.c_str(), "wb");
 
 		string line;
 		char s_count[256];
@@ -146,15 +151,13 @@ public:
 		configFileName += ".config";
 
 		//将配置文件中的信息读入_infos中
-		FILE* foutConfig = fopen(configFileName.c_str(), "r");
+		FILE* foutConfig = fopen(configFileName.c_str(), "rb");
 		assert(foutConfig);
 		string line;
 		while(_ReadLine(foutConfig, line))
 		{
-			_infos[line[0]]._ch = line[0];
 			string count = line.substr(2, line.size()-2);
-			_infos[line[0]]._count = atoi(count.c_str());
-
+			_infos[(unsigned char)line[0]]._count = atoi(count.c_str());
 			line.clear();
 		}
 
@@ -163,8 +166,8 @@ public:
 		HuffmanTree<CharInfo> h(_infos, 256, invalid);
 
 		//解压缩
-		FILE* fOut = fopen(fileName, "r");
-		FILE* fIn = fopen(uncompressFileName.c_str(), "w");
+		FILE* fOut = fopen(fileName, "rb");
+		FILE* fIn = fopen(uncompressFileName.c_str(), "wb");
 		char ch = fgetc(fOut);
 		int pos = 7;
 		HuffmanTreeNode<CharInfo>* root = h.GetRoot();
@@ -172,7 +175,7 @@ public:
 		HuffmanTreeNode<CharInfo>* cur = root;
 		LongType total = root->_weight._count; //根节点的权重._count为字符出现总次数
 
-		while(ch != EOF)
+		while(!feof(fOut))
 		{
 			while(pos >= 0 && total>0)
 			{
@@ -182,7 +185,8 @@ public:
 					cur = cur->_right;
 				
 				--pos;
-				if(cur->_left== NULL && cur->_right==NULL)
+
+				if(cur->_left==NULL && cur->_right==NULL)
 				{
 					fputc(cur->_weight._ch, fIn);
 					cur = root;
@@ -212,22 +216,23 @@ protected:
 
 		CreateHuffmanCode(root->_left, code+'0');
 		CreateHuffmanCode(root->_right, code+'1');
-
 	}
 
 	bool _ReadLine(FILE* fout, string& line)
 	{
 		assert(fout);
 		char c = fgetc(fout);
+		if (c == EOF)
+			return false;
+
+		line.push_back(c);
+		c = fgetc(fout);
 		while(c!=EOF && c!='\n')
 		{
 			line.push_back(c);
 			c = fgetc(fout);
 		}
-		if(line.size() == 0)
-			return false;
-		else
-			return true;
+		return true;
 	}
 protected:
 	CharInfo _infos[256];

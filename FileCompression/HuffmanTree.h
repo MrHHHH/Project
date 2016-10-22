@@ -46,7 +46,7 @@ public:
 		//将出现次数不为0的字符push进堆里
 		for(int i=0; i<256; ++i)
 		{
-			if(arr[i]._count != 0)
+			if(arr[i] != invalid)
 			{
 				Node* node = new Node(arr[i]);
 				minHeap.Push(node);
@@ -96,4 +96,3 @@ protected:
 protected:
 	Node* _root;
 };
-		
