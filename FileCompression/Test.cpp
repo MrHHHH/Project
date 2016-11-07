@@ -7,13 +7,17 @@
 
 #include <iostream>
 #include "FileCompress.h"
+#include <time.h>
 using namespace std;
 
 
 void TestCompress()
 {
 	FileCompress fc;
-	 char* fileName = "source.txt";
+	//char* fileName = "Input.BIG"; //文本
+	const char* fileName = "294121.jpg";   //图片
+	//const char* fileName = "1.mp3";   //音频
+	//const char* fileName = "jdbc1.exe";   //视频
 	fc.Compress(fileName);
 	cout << "压缩" << endl;
 }
@@ -21,7 +25,11 @@ void TestCompress()
 void TestUncompress()
 {
 	FileCompress fc;
-	const char* fileName = "source.txt";
+	//const char* fileName = "Input.BIG";  //文本
+	const char* fileName = "294121.jpg";   //图片
+	//const char* fileName = "1.mp3";   //音频
+	//const char* fileName = "jdbc1.exe";   //视频
+
 	string compressFileName = fileName;
 	compressFileName += ".compress";
 	fc.UnCompress(compressFileName.c_str());
@@ -29,8 +37,16 @@ void TestUncompress()
 }
 int main()
 {
+	double startCom = clock();
 	TestCompress();
+	double timeCom = (clock() - startCom)/1000;
+	cout <<"用时："<< timeCom << endl;
+
+	double startUncom = clock();
 	TestUncompress();
+	double timeUncom = (clock() - startUncom)/1000;
+	cout <<"用时："<< timeUncom << endl;
 	system("pause");
+
 	return 0;
 }

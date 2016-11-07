@@ -7,7 +7,13 @@ using namespace std;
 
 //问题：处理哈夫曼编码>=8位的字符，这些字符没必要压缩
 
+/*
+********************项目描述*********************
+题目：文件压缩
+********************问题及解决*******************
+1.以二进制打开文件和以文本打开文件的区别：
 
+*/
 typedef long long LongType;
 struct CharInfo
 {
@@ -50,8 +56,9 @@ public:
 			_infos[i]._ch = i;
 		}
 	}
+
 	//压缩
-	const char* Compress(char* fileName)
+	const char* Compress(const char* fileName)
 	{
 		assert(fileName);
 
@@ -128,7 +135,7 @@ public:
 				line += s_count;
 				line += '\n';
 
-				fputs(line.c_str(), fInConfig);
+				fwrite(line.c_str(), sizeof(char), line.size(), fInConfig);
 				line.clear();
 			}
 		}
@@ -139,6 +146,7 @@ public:
 
 		return CompressFileName.c_str();
 	}
+
 	//解压
 	const char* UnCompress(const char* fileName)
 	{
@@ -203,6 +211,8 @@ public:
 		return uncompressFileName.c_str();
 	}
 protected:
+
+	//递归
 	void CreateHuffmanCode(HuffmanTreeNode<CharInfo>* root, string code)
 	{
 		if(root == NULL)
@@ -213,16 +223,16 @@ protected:
 			_infos[root->_weight._ch]._code = code;
 			return;
 		}
-
 		CreateHuffmanCode(root->_left, code+'0');
 		CreateHuffmanCode(root->_right, code+'1');
 	}
 
+	//非递归
 	bool _ReadLine(FILE* fout, string& line)
 	{
 		assert(fout);
 		char c = fgetc(fout);
-		if (c == EOF)
+		if (feof(fout))
 			return false;
 
 		line.push_back(c);
