@@ -67,6 +67,7 @@ public:
 
 	const T& Top() const
 	{
+		assert(!_heap.empty());
 		return _heap[0];
 	}
 protected:

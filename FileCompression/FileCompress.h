@@ -1,19 +1,10 @@
 #pragma once
-#include <string>
-#include <iostream>
-#include <cassert>
 #include "HuffmanTree.h"
+#include <iostream>
+#include <string>
+#include <cassert>
 using namespace std;
 
-//问题：处理哈夫曼编码>=8位的字符，这些字符没必要压缩
-
-/*
-********************项目描述*********************
-题目：文件压缩
-********************问题及解决*******************
-1.以二进制打开文件和以文本打开文件的区别：
-
-*/
 typedef long long LongType;
 struct CharInfo
 {
@@ -58,11 +49,11 @@ public:
 	}
 
 	//压缩
-	const char* Compress(const char* fileName)
+	const string Compress(const string& fileName)
 	{
-		assert(fileName);
+		assert(!fileName.empty());
 
-		FILE* fOut = fopen(fileName, "rb");
+		FILE* fOut = fopen(fileName.c_str(), "rb");
 		assert(fOut);
 
 		//处理汉字，char放不下
@@ -83,8 +74,7 @@ public:
 		CreateHuffmanCode(ht.GetRoot(), code);
 
 		//压缩文件
-		string CompressFileName = fileName;
-		CompressFileName += ".compress";
+		string CompressFileName = fileName + ".compress";
 		FILE* fIn = fopen(CompressFileName.c_str(), "wb");
 		assert(fIn);
 
@@ -119,8 +109,7 @@ public:
 		fputc(c, fIn);
 
 		//写配置文件
-		string configFileName = fileName;
-		configFileName += ".config";
+		string configFileName = fileName + ".config";
 		FILE* fInConfig = fopen(configFileName.c_str(), "wb");
 
 		string line;
@@ -144,17 +133,17 @@ public:
 		fclose(fOut);
 		fclose(fIn);
 
-		return CompressFileName.c_str();
+		return CompressFileName;
 	}
 
 	//解压
-	const char* UnCompress(const char* fileName)
+	const string UnCompress(const string& fileName)
 	{
-		assert(fileName);
+		assert(!fileName.empty());
 
-		string name= fileName;
-		size_t index = name.rfind('.');
-		string configFileName = name.substr(0, index);
+
+		size_t index = fileName.rfind('.');
+		string configFileName = fileName.substr(0, index);
 		string uncompressFileName = configFileName + ".uncompress";
 		configFileName += ".config";
 
@@ -174,12 +163,14 @@ public:
 		HuffmanTree<CharInfo> h(_infos, 256, invalid);
 
 		//解压缩
-		FILE* fOut = fopen(fileName, "rb");
+		FILE* fOut = fopen(fileName.c_str(), "rb");
 		FILE* fIn = fopen(uncompressFileName.c_str(), "wb");
 		char ch = fgetc(fOut);
 		int pos = 7;
 		HuffmanTreeNode<CharInfo>* root = h.GetRoot();
-		assert(root);
+		if (root == NULL)
+			return uncompressFileName;
+
 		HuffmanTreeNode<CharInfo>* cur = root;
 		LongType total = root->_weight._count; //根节点的权重._count为字符出现总次数
 
@@ -208,7 +199,7 @@ public:
 		fclose(foutConfig);
 		fclose(fIn);
 		fclose(fOut);
-		return uncompressFileName.c_str();
+		return uncompressFileName;
 	}
 protected:
 
@@ -227,7 +218,6 @@ protected:
 		CreateHuffmanCode(root->_right, code+'1');
 	}
 
-	//非递归
 	bool _ReadLine(FILE* fout, string& line)
 	{
 		assert(fout);
@@ -244,6 +234,7 @@ protected:
 		}
 		return true;
 	}
+
 protected:
 	CharInfo _infos[256];
 };

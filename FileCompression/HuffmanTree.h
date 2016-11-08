@@ -45,7 +45,7 @@ public:
 		Heap<Node*, NodeLess> minHeap;
 		//将出现次数不为0的字符push进堆里
 		for(int i=0; i<256; ++i)
-		{
+		{	
 			if(arr[i] != invalid)
 			{
 				Node* node = new Node(arr[i]);
@@ -69,8 +69,10 @@ public:
 
 			minHeap.Push(parent);
 		}
-
-		_root = minHeap.Top();	
+		if (minHeap.Size() > 0)
+			_root = minHeap.Top();
+		else
+			_root = NULL;
 	}
 
 	Node* GetRoot()
