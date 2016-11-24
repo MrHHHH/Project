@@ -6,8 +6,9 @@ int main()
 	int num = 0; //进程数量
 	cin >> num;
 	ProcessScheduling p1(num);
-	p1.Round_Robin();
-
+//	p1.Round_Robin();
+//	p1.FCFS();
+	p1.SJF();
 	system("pause");
 	return 0;
 }
