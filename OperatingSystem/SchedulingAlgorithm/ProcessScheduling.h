@@ -3,17 +3,32 @@
 #include <string>
 using namespace std;
 
+enum Status
+{
+	READY,
+	BLOCK,
+	FINISH,
+};
 struct PCB
 {
 	string _name; //进程名
-	int _arriveTime; //到达时间
+	int _arriveTime; //到达(提交)时间
 	int _runTime; //服务时间
-	string _status; //进程状态
+	int _beginRunTime; //开始运行时间
+	int _finishTime; //完成时间
+	int _cyclingTime; //周转时间
+	double _weightCyclingTime; //带权周转时间
+	Status _status; //进程状态
+
 	PCB(string name = "", int arriveTime = 0, int runTime = 0)
 		:_name(name)
 		, _arriveTime(arriveTime)
 		, _runTime(runTime)
-		, _status("Waiting")
+		, _beginRunTime(0)
+		, _finishTime(0)
+		, _cyclingTime(0)
+		, _weightCyclingTime(0.0)
+		, _status(READY)
 	{}
 };
 
@@ -21,6 +36,11 @@ struct PCB
 class ProcessScheduling
 {
 public:
+	ProcessScheduling()
+		:_process(NULL)
+		, _size(0)
+	{}
+
 	ProcessScheduling(int num)
 		:_size(num)
 	{
