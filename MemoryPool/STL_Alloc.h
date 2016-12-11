@@ -1,8 +1,10 @@
 #pragma once
 #include <stdlib.h>
+#include <stdarg.h>
 #include <iostream>
 using namespace std;
 
+/////////////////////////////////////////////////////////////////////////
 //一级空间配置器
 
 //参数inst为预留，暂时不用
@@ -22,6 +24,7 @@ public:
 	//空间分配:一级空间配置器直接使用malloc
 	static void *Allocate(size_t n)
 	{
+
 		void *result = malloc(n);
 		if (result == 0)
 			result = OomMalloc(n);
@@ -98,6 +101,7 @@ void *__MallocAllocTemplate<inst>::OomRealloc(void *p, size_t n)
 
 typedef __MallocAllocTemplate<0> MallocAlloc;
 
+/////////////////////////////////////////////////////////////////////////
 //二级空间配置器
 
 //匿名枚举，定义整数常量的另一种方式
@@ -119,7 +123,7 @@ private:
 public:
 
 	//空间分配
-	static void *Allocate(size_t n)
+	static void *Allocate(size_t n) //n为字节数
 	{
 		//1.分配区块大于__MAX_BYTES，调用一级空间配置器
 		//2.否则，进入二级空间配置器中获取
@@ -146,7 +150,7 @@ public:
 	}
 
 	//空间回收
-	static void Deallocate(void *p, size_t n)
+	static void Deallocate(void *p, size_t n)  //n为字节数
 	{
 		//1.回收区块大于__MAX_BYTES,调用一级空间配置器
 		//2.否则，调用二级空间配置器
@@ -189,7 +193,7 @@ private:
 		return (bytes + __ALIGN - 1) / __ALIGN - 1;
 	}
 
-	//返回一个大小为n的对象，并可能加入大小为n的其他区块到freeList中
+	//获得内存插入freeList中。返回一个大小为n的对象，并可能加入大小为n的其他区块到freeList中
 	static void *Refill(size_t n)
 	{
 		int nobjs = 20;
@@ -214,6 +218,7 @@ private:
 		return result;
 	}
 
+	//获取大块内存，尝试取得nobjs个区块
 	static char *ChunkAlloc(size_t size, int& nobjs)
 	{
 		size_t bytesNeed = size*nobjs;
@@ -301,3 +306,38 @@ size_t __DefaultAllocTemplate<threads, inst>::heapSize = 0;
 template <bool threads, int inst>
 __DefaultAllocTemplate<threads, inst>::Obj *volatile __DefaultAllocTemplate<threads, inst>::freeList[__NFREELISTS] = 
 	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0， 0};
+
+#   define __NODE_ALLOCATOR_THREADS true
+#ifdef __USE_MALLOC
+typedef MallocAlloc Alloc; //令alloc为一级空间配置器
+#else
+typedef __DefaultAllocTemplate<__NODE_ALLOCATOR_THREADS, 0> Alloc;//令Alloc为二级空间配置器
+#endif // __USE_MALLOC
+
+template<class T, class _Alloc>
+class SimpleAlloc
+{
+public:
+	static T *Allocate(size_t n)  //n为对象个数
+	{
+		return (n == 0) ? 0 : (T*)_Alloc::Allocate(n*sizeof(T));
+	}
+
+	static T *Allocate()
+	{
+		return (T*)_Alloc::Allocate(sizeof(T));
+	}
+
+	static void Deallocate(T *p, size_t n)
+	{
+		if (n != 0)
+		{
+			_Alloc::Deallocate(p, n*sizeof(T));
+		}
+	}
+
+	static void Deallocate(T *p)
+	{
+		_Alloc::Deallocate(p, sizeof(T));
+	}
+};
