@@ -1,8 +1,50 @@
 #pragma once
 #include <stdlib.h>
+#include <stdio.h>
 #include <stdarg.h>
 #include <iostream>
 using namespace std;
+// Trace 跟踪
+
+#define __DEBUG__
+
+FILE* fOut = fopen("trace.log", "w");
+
+static string GetFileName(const string& path)
+{
+	char ch = '/';
+
+#ifdef _WIN32
+	ch = '\\';
+#endif
+
+	size_t pos = path.rfind(ch);
+	if (pos == string::npos)
+		return path;
+	else
+		return path.substr(pos + 1);
+}
+// 用于调试追溯的trace log
+inline static void __trace_debug(const char* function,
+	const char * filename, int line, char* format, ...)
+{
+	// 读取配置文件
+#ifdef __DEBUG__
+	// 输出调用函数的信息
+	fprintf(stdout, "【 %s:%d】%s", GetFileName(filename).c_str(), line, function);
+	fprintf(fOut, "【 %s:%d】%s", GetFileName(filename).c_str(), line, function);
+
+	// 输出用户打的trace信息
+	va_list args;
+	va_start(args, format);
+	vfprintf(stdout, format, args);
+	vfprintf(fOut, format, args);
+	va_end(args);
+#endif
+}
+
+#define __TRACE_DEBUG(...)  \
+	__trace_debug(__FUNCTION__, __FILE__, __LINE__, __VA_ARGS__);
 
 /////////////////////////////////////////////////////////////////////////
 //一级空间配置器
@@ -24,7 +66,7 @@ public:
 	//空间分配:一级空间配置器直接使用malloc
 	static void *Allocate(size_t n)
 	{
-
+		__TRACE_DEBUG("(n:%u)\n", n);
 		void *result = malloc(n);
 		if (result == 0)
 			result = OomMalloc(n);
@@ -32,8 +74,9 @@ public:
 	}
 
 	//空间释放：一级空间配置器直接使用free
-	static void Deallocate(void *p， size_t /*n*/)
+	static void Deallocate(void *p, size_t /*n*/)
 	{
+		__TRACE_DEBUG("(p:%p)\n", p);
 		free(p);
 	}
 
@@ -69,7 +112,8 @@ void *__MallocAllocTemplate<inst>::OomMalloc(size_t n)
 		myMallocHandler = __mallocAllocOomHandler;
 		if (myMallocHandler == 0)
 		{
-			throw::bad_alloc;
+			cerr << "out of memory" << endl;
+			exit(1);
 		}
 
 		(*myMallocHandler)(); //企图释放内存
@@ -125,6 +169,7 @@ public:
 	//空间分配
 	static void *Allocate(size_t n) //n为字节数
 	{
+		__TRACE_DEBUG("(n: %u)\n", n);
 		//1.分配区块大于__MAX_BYTES，调用一级空间配置器
 		//2.否则，进入二级空间配置器中获取
 		if (n > (size_t)__MAX_BYTES)
@@ -140,10 +185,12 @@ public:
 		if (head == NULL)
 		{
 			//没有找到可用的freeList,重新填充freeList
-			return Refill(n);
+			return Refill(ROUND_UP(n));
 		}
 		else
 		{
+			__TRACE_DEBUG("自由链表取内存:_freeList[%d]\n", index);
+
 			freeList[index] = head->freeListLink;  //头删自由链表
 			return head;
 		}
@@ -152,6 +199,7 @@ public:
 	//空间回收
 	static void Deallocate(void *p, size_t n)  //n为字节数
 	{
+		__TRACE_DEBUG("(p:%p, n: %u)\n", p, n);
 		//1.回收区块大于__MAX_BYTES,调用一级空间配置器
 		//2.否则，调用二级空间配置器
 		if (n > (size_t)__MAX_BYTES)
@@ -196,6 +244,7 @@ private:
 	//获得内存插入freeList中。返回一个大小为n的对象，并可能加入大小为n的其他区块到freeList中
 	static void *Refill(size_t n)
 	{
+		__TRACE_DEBUG("(n:%u)\n", n);
 		int nobjs = 20;
 		char* chunk = ChunkAlloc(n, nobjs);
 
@@ -221,6 +270,8 @@ private:
 	//获取大块内存，尝试取得nobjs个区块
 	static char *ChunkAlloc(size_t size, int& nobjs)
 	{
+		__TRACE_DEBUG("(size: %u, nobjs: %d)\n", size, nobjs);
+
 		size_t bytesNeed = size*nobjs;
 		size_t bytesLeft = endFree - startFree;  //内存池剩余空间
 		char *result;
@@ -230,12 +281,14 @@ private:
 
 		if (bytesLeft >= bytesNeed)
 		{
+			__TRACE_DEBUG("内存池中内存足够分配%d个对象\n", nobjs);
 			result = startFree;
 			startFree += bytesNeed;
 			return result;
 		}
 		else if (bytesLeft >= size)
 		{
+			__TRACE_DEBUG("内存池中内存不够分配%d个对象，只能分配%d个对象\n", nobjs, bytesLeft / size);
 			result = startFree;
 			nobjs = bytesLeft / size; //剩余空间可以分配对象的个数
 			startFree += (nobjs*size);
@@ -251,15 +304,17 @@ private:
 				tmp->freeListLink = freeList[index];
 				freeList[index] = tmp;
 				startFree = NULL;
+				__TRACE_DEBUG("将内存池中剩余的空间，分配给freeList[%d]\n", index);
 			}
 
 			//从系统分配大块内存
 			size_t bytesToGet = bytesNeed * 2 + ROUND_UP(heapSize >> 4);
 			startFree = (char*)malloc(bytesToGet);
-
+			__TRACE_DEBUG("内存池空间不足，系统堆分配%u bytes内存\n", bytesToGet)
 			//如果在系统堆中分配内存失败，则尝试到自由链表中更大的结点中分配
 			if (startFree == NULL)
 			{
+				__TRACE_DEBUG("系统堆已无足够，无奈之下，只能到自由链表中看看\n");
 				for (int i = size; i <= __MAX_BYTES; i += __ALIGN)
 				{
 					size_t index = FreeListIndex(i);
@@ -276,7 +331,8 @@ private:
 				endFree = 0;
 				//自由链表中也没有内存，则再到一级配置器中分配内存
 				//因为一级配置器中可能设置了内存处理，有可能会分配到内存
-				startFree = MallocAlloc::Allocate(bytesToGet);
+				__TRACE_DEBUG("系统堆和自由链表都已无内存，一级配置器做最后一根稻草\n");
+				startFree = (char*)MallocAlloc::Allocate(bytesToGet);
 			}
 			heapSize += bytesToGet;
 			endFree = startFree + bytesToGet;
@@ -304,8 +360,8 @@ char *__DefaultAllocTemplate<threads, inst>::endFree = 0;
 template <bool threads, int inst>
 size_t __DefaultAllocTemplate<threads, inst>::heapSize = 0;
 template <bool threads, int inst>
-__DefaultAllocTemplate<threads, inst>::Obj *volatile __DefaultAllocTemplate<threads, inst>::freeList[__NFREELISTS] = 
-	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0， 0};
+typename __DefaultAllocTemplate<threads, inst>::Obj *volatile __DefaultAllocTemplate<threads, inst>::freeList[__NFREELISTS] = 
+	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 #   define __NODE_ALLOCATOR_THREADS true
 #ifdef __USE_MALLOC
@@ -341,3 +397,29 @@ public:
 		_Alloc::Deallocate(p, sizeof(T));
 	}
 };
+
+
+//通过__TRACE_DEBUG做白盒测试
+
+//测试特殊场景 
+void TestAlloc1()
+{
+	cout<<"测试内存池空间不足分配"<<endl;   
+	char *p1=SimpleAlloc<char,Alloc>::Allocate(8);
+	char *p2 = SimpleAlloc<char, Alloc>::Allocate(8);
+	cout << "测试内存池空间不足，系统堆进行分配" << endl;
+	char *p3 = SimpleAlloc<char, Alloc>::Allocate(12); 
+}
+
+//测试系统堆内存耗尽的场景 
+void TestAlloc2()
+{
+	cout<<"测试系统堆内存耗尽"<<endl;
+	SimpleAlloc<char, Alloc>::Allocate(1024 * 1024 * 1024);    //SimpleAlloc<char, Alloc>::Allocate(1024*1024*1024);
+	SimpleAlloc<char, Alloc>::Allocate(1024 * 1024);
+//不好测试，说明系统管理小块内存的能力还是很强的。   
+	for(int i= 0;i< 100000; ++i)    
+	{
+		char *p1=SimpleAlloc<char,Alloc>::Allocate(128);
+	}
+}
