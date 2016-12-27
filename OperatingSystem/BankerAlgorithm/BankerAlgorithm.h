@@ -58,5 +58,5 @@ protected:
 	vector<int*> _Need;    //需求矩阵
 
 	int* _Work;   //工作向量
-	vector<bool> _Finish;   //表示系统是否有足够资源分配给进程
+	vector<bool> _Finish;   //表示进程是否可以执行
 };
