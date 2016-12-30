@@ -119,7 +119,14 @@ bool Banker::SafetyAlgorithm(int* safeArr)  //安全性算法，检查该状态是否安全。参
 			}
 		}
 		if (status == true)
-			safeArr[safeArrIndex++] = i;
+		{
+			//work += allocation
+			for (int j = 0; j < _resourceNum; ++j)  //j:当前资源
+			{
+				_Work[j] +=  _Allocation[i][j];
+			}
+			safeArr[safeArrIndex++] = i;  //加入安全序列
+		}
 		_Finish[i] = status;
 	}
 
@@ -262,6 +269,26 @@ bool Banker::BankerAlgorithm(int pNO, int* request, size_t len)
 	}
 	else  //安全，打印安全序列
 	{
+		//如果该进程Need全为0，即已经获得所有资源，可以执行完毕，Avaliable += Allocation，删除该进程
+		bool status = true;
+		for (int i = 0; i < _resourceNum; ++i)
+		{
+			if (_Need[i] != 0)
+			{
+				status = false;
+				break;
+			}
+		}
+		if (status == true)
+		{
+			for (int i = 0; i < _resourceNum; ++i)
+			{
+				_Available[pNO] = _Allocation[pNO][i];
+			}
+		}
+		//删除
+		//更改思路：用链表将所有进程连接到一起。
+
 		cout << "当前状态安全,安全序列为：";
 		for (int i = 0; i < _processNum; ++i)
 		{
