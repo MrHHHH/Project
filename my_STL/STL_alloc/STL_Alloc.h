@@ -1,3 +1,5 @@
+//SGI STL空间配置器的模拟实现 
+
 #pragma once
 #include <stdlib.h>
 #include <stdio.h>
