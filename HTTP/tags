@@ -1,0 +1,16 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+FATAL	httpd.h	/^	FATAL,$/;"	e	enum:logGrade
+HandleThread	httpd.cpp	/^void *HandleThread(int sock)$/;"	f
+NORMAL	httpd.h	/^	NORMAL,$/;"	e	enum:logGrade
+PrintLog	httpd.cpp	/^void PrintLog(const char *logMsg, logGrade grade)$/;"	f
+StartUp	httpd.cpp	/^int StartUp(const char *ip, int port)$/;"	f
+Usage	main.cpp	/^static void Usage(const char *msg)$/;"	f	file:
+WARNING	httpd.h	/^	WARNING,$/;"	e	enum:logGrade
+__HTTPD_H__	httpd.h	9;"	d
+logGrade	httpd.h	/^enum logGrade$/;"	g
+main	main.cpp	/^int main(int argc, char *argv[])$/;"	f
