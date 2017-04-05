@@ -1,0 +1,20 @@
+#!/bin/bash
+
+#here文档，自动生成Makefile文件
+LOCAL_PATH=$(pwd)
+SRC=$(ls ${LOCAL_PATH}/*.cpp | tr '\n' ' ')
+OBJ=$(ls ${LOCAL_PATH}/*.cpp | sed 's/\.cpp/\.o/g' | tr '\n' ' ')
+EXEC='httpd'
+CC=g++
+LIB="-lpthread"
+
+cat <<EOF > Makefile
+${EXEC}:${OBJ}
+	${CC} -o \$@ \$^ ${LIB}
+%.o:%.cpp
+	${CC} -c \$< -o \$@
+
+.PHONY:clean
+clean:
+	rm -f *.o ${EXEC}
+EOF

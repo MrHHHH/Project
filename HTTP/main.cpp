@@ -15,10 +15,9 @@ static void Usage(const char *msg)
 
 static void *AcceptRequest(void *arg)
 {
-	cout << "Accept Request" << endl;
 	int sock = (int)arg;
 	pthread_detach(pthread_self());
-	return Handle_Request(sock);
+	return (void *)Handle_Request(sock);
 }
 
 int main(int argc, char *argv[])

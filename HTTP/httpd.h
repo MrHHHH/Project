@@ -11,14 +11,20 @@
 #include <iostream>
 #include <cassert>
 #include <stdlib.h>
+#include <stdio.h>
 #include <pthread.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/sendfile.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <cstring>
 using namespace std;
 
+#define _SIZE_ 1024
 //日志等级
 enum logGrade
 {
@@ -30,5 +36,5 @@ enum logGrade
 
 int StartUp(const char *ip, int port);
 void PrintLog(const char *logMsg, logGrade grade);
-void *Handle_Request(int sock);
+int Handle_Request(int sock);
 #endif
