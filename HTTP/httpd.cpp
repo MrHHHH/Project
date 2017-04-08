@@ -66,7 +66,7 @@ static int ReadLine(int sock, char *buf, size_t len)
 	int n = 0;
 	char c = 0;
 	ssize_t s = 0;
-	while(n < len && c != '\n')
+	while(n < len-1 && c != '\n')
 	{
 		s = recv(sock, &c, 1, 0);
 		//  \r和\r\n都是换行
@@ -91,13 +91,114 @@ static void ClearHeader(int sock)
 	
 	do
 	{
-		size = ReadLine(sock, buf, sizeof(buf)-1);
+		size = ReadLine(sock, buf, sizeof(buf));
 	}while(size!=1 || strcmp(buf, "\n")!=0);   //注意逻辑
 }
 
 //处理cgi模式的函数
 static int ExcuCgi(int sock, const char *method, const char *path, const char *resource)
 {
+	char methodEnv[_SIZE_/16];
+	char resourceEnv[_SIZE_/4];
+	char contentLengthEnv[_SIZE_/8];
+	//处理http头部信息
+	int contentLength = -1; // 请求正文内容长度--处理粘包问题
+	char buf[_SIZE_/8];
+	if(strcasecmp(method, "GET") == 0)
+	{
+		ClearHeader(sock);
+	}
+	else //POST 
+	{
+		ReadLine(sock, buf, sizeof(buf));
+		if(strncmp(buf, "Content-Length: ", 16) == 0)
+		{
+			contentLength = atoi(buf+16);
+		}
+		ClearHeader(sock);
+	}
+	
+	//发送应答头部
+	const char* statusLine = "http/1.0 200 ok\r\n";
+	send(sock, statusLine, strlen(statusLine), 0);
+	send(sock, "\r\n", strlen("\r\n"), 0);
+
+	//fork子进程进行程序替换执行文件，利用管道进行进程间通信
+	int input[2];
+	int output[2];
+
+	if(pipe(input)<0 || pipe(output)<0)
+	{
+		EchoErrno();
+		PrintLog("ExcuCgi pipe error", FATAL);
+		return 9;
+	}
+
+	pid_t pid = fork();
+	if(pid < 0)
+	{
+		EchoErrno();
+		PrintLog("ExcuCgi fork error", FATAL);
+		return 10;
+	}
+	else if(pid == 0)  //child
+	{
+		//关闭对应管道
+		close(input[1]);
+		close(output[0]);
+
+		//文件描述符重定向
+		dup2(input[0], 0);
+		dup2(output[1], 1);
+
+		//通过环境变量传递参数
+		sprintf(methodEnv, "METHOD=%s", method);
+		if(putenv(methodEnv) != 0)
+		{
+			EchoErrno();
+			PrintLog("ExcuCgi putenv error", FATAL);
+			return 11;
+		}
+		if(strcasecmp(method, "GET") == 0)
+		{
+			sprintf(resourceEnv, "RESOURCE=%s", resource);
+			putenv(resourceEnv);
+		}
+		else //POST
+		{
+			sprintf(contentLengthEnv, "CONTENTLENGTH=%d", contentLength);
+			putenv(contentLengthEnv);
+		}
+
+		//程序替换
+		execl(path, path, NULL);
+	}
+	else  //father
+	{
+		//关闭对应管道
+		close(input[0]);
+		close(output[1]);
+		
+		//读取POST方法正文内容通过管道发送给子进程
+		char c = '\0';
+		if(strcasecmp(method, "POST") == 0)
+		{
+			int i = 0;
+			for( ; i < contentLength; ++i)
+			{
+				recv(sock, &c, 1, 0);
+				write(input[0], &c, 1);
+			}
+		}
+
+		//从管道中读取内容发送给sock
+		while(read(output[1], &c, 1) > 0)
+		{
+			send(sock, &c, 1, 0);
+		}
+
+		waitpid(pid, NULL , 0);
+	}
 
 }
 
@@ -137,7 +238,7 @@ int Handle_Request(int sock)
 	int ret = 0;
 	int i = 0; //下标标记
 	int cgi = 0; //是否为cgi模式
-	int size = ReadLine(sock, line, sizeof(line)-1);
+	int size = ReadLine(sock, line, sizeof(line));
 	if(size == 0)
 	{
 		EchoErrno();
