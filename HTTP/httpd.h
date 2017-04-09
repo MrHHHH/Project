@@ -14,17 +14,18 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
-#include <fcntl.h>
 #include <sys/sendfile.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <cstring>
 using namespace std;
 
-#define _SIZE_ 1024
+#define _SIZE_ (1024*4)
 //日志等级
 enum logGrade
 {

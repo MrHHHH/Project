@@ -96,7 +96,8 @@ static void ClearHeader(int sock)
 }
 
 //处理cgi模式的函数
-static int ExcuCgi(int sock, const char *method, const char *path, const char *resource)
+static int ExcuCgi(int sock, const char *method, \
+		const char *path, const char *resource)
 {
 	char methodEnv[_SIZE_/16];
 	char resourceEnv[_SIZE_/4];
@@ -117,13 +118,13 @@ static int ExcuCgi(int sock, const char *method, const char *path, const char *r
 		}
 		ClearHeader(sock);
 	}
-	
+
 	//发送应答头部
 	const char* statusLine = "http/1.0 200 ok\r\n";
 	send(sock, statusLine, strlen(statusLine), 0);
 	send(sock, "\r\n", strlen("\r\n"), 0);
 
-	//fork子进程进行程序替换执行文件，利用管道进行进程间通信
+	//fork子进程进行程序替换执行文件，利用管道进行进程间通信，传送资源
 	int input[2];
 	int output[2];
 
@@ -148,17 +149,15 @@ static int ExcuCgi(int sock, const char *method, const char *path, const char *r
 		close(output[0]);
 
 		//文件描述符重定向
+
 		dup2(input[0], 0);
 		dup2(output[1], 1);
 
-		//通过环境变量传递参数
+		//通过环境变量传递参数，不用管道因为1.要对字符串提取2.传送数据量少
+		//程序替换只替换目标文件的代码和数据，不会影响环境变量。环境变量的继承特征
+
 		sprintf(methodEnv, "METHOD=%s", method);
-		if(putenv(methodEnv) != 0)
-		{
-			EchoErrno();
-			PrintLog("ExcuCgi putenv error", FATAL);
-			return 11;
-		}
+		putenv(methodEnv);
 		if(strcasecmp(method, "GET") == 0)
 		{
 			sprintf(resourceEnv, "RESOURCE=%s", resource);
@@ -172,6 +171,8 @@ static int ExcuCgi(int sock, const char *method, const char *path, const char *r
 
 		//程序替换
 		execl(path, path, NULL);
+		printf("execl is error\n");
+		exit(1);
 	}
 	else  //father
 	{
@@ -187,12 +188,12 @@ static int ExcuCgi(int sock, const char *method, const char *path, const char *r
 			for( ; i < contentLength; ++i)
 			{
 				recv(sock, &c, 1, 0);
-				write(input[0], &c, 1);
+				write(input[1], &c, 1);
 			}
 		}
 
 		//从管道中读取内容发送给sock
-		while(read(output[1], &c, 1) > 0)
+		while(read(output[0], &c, 1) > 0)
 		{
 			send(sock, &c, 1, 0);
 		}
@@ -232,7 +233,7 @@ int Handle_Request(int sock)
 	char line[_SIZE_]; //存储一行的内容
 	char *c = line;
 	char method[64]; //存储请求方法
-	char uri[_SIZE_];
+	char url[_SIZE_];
 	char *resource = NULL; //指向GET方法的资源
 	char path[_SIZE_]; //存储
 	int ret = 0;
@@ -254,19 +255,19 @@ int Handle_Request(int sock)
 		method[i++] = *c++;
 	}
 	method[i] = 0;
-	//获取request-uri
+	//获取request-url
 	++c;
 	i = 0;
 	while(i < _SIZE_ && *c != ' ')
 	{
-		uri[i++] = *c++;
+		url[i++] = *c++;
 	}
-	uri[i] = 0;
+	url[i] = 0;
 	
 
 	//设置cgi模式
 	//1.POST方法肯定为cgi模式，
-	//2.GET方法如果uri中有?(即携带资源)则使用cgi模式, 
+	//2.GET方法如果url中有?(即携带资源)则使用cgi模式, 
 	//3.请求路径为可执行文件用cgi模式
 	if(strcasecmp("POST", method) == 0)
 	{
@@ -274,14 +275,14 @@ int Handle_Request(int sock)
 	}
 	else if(strcasecmp("GET", method) == 0)
 	{
-		resource = uri;
+		resource = url;
 		while(*resource && *resource!='?')
 		{
 			++resource;
 		}
 		if(*resource == '?')
 		{
-			//uri指向路径，resource指向资源
+			//url指向路径，resource指向资源
 			*resource = 0;
 			++resource;
 			cgi = 1;
@@ -296,7 +297,7 @@ int Handle_Request(int sock)
 	}
 
 	//处理请求路径
-	sprintf(path, "wwwRoot%s", uri);
+	sprintf(path, "wwwRoot%s", url);
 	if(path[strlen(path)-1] == '/') //目录
 	{
 		strcat(path, "homepage.html");
@@ -306,6 +307,7 @@ int Handle_Request(int sock)
 	
 	if(stat(path, &st) < 0) //从文件名中获取文件信息保存在stat结构体中。
 	{
+		//ClearHeader(sock);
 		EchoErrno();
 		PrintLog("获取path文件信息失败", FATAL);
 		ret = 6;
