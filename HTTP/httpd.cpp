@@ -147,6 +147,7 @@ static int ExcuCgi(int sock, const char *method, \
 		//关闭对应管道
 		close(input[1]);
 		close(output[0]);
+		close(sock); //子进程中的sock没有用了，关闭掉，防止错误写入。
 
 		//文件描述符重定向
 
