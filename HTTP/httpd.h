@@ -18,6 +18,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/sendfile.h>
+#include <syslog.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
@@ -26,6 +27,7 @@
 using namespace std;
 
 #define _SIZE_ (1024*4)
+#define _STATUS_SIZE_ 20
 //日志等级
 enum logGrade
 {
@@ -38,4 +40,10 @@ enum logGrade
 int StartUp(const char *ip, int port);
 void PrintLog(const char *logMsg, logGrade grade);
 int Handle_Request(int sock);
+void EchoErrno(int sock, int statusCode);
+int ExcuCgi(int sock, const char *method, \
+		const char *path, const char *resource);
+
+int ShowPage(int sock, const char *path, ssize_t size);
+
 #endif

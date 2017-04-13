@@ -34,29 +34,19 @@ int StartUp(const char *ip, int port)
 	return sock;
 }
 
+//打印日志
 void PrintLog(const char *logMsg, logGrade grade)
 {
+	//守护进程的日志实现：openlog 、syslog 、closelog
 	assert(logMsg);
-	
-	switch(grade)
-	{
-		case NORMAL:
-			cout << logMsg << "NORMAL" << endl;
-			break;
-		case WARNING:
-			cout << logMsg << "WARNING" << endl;
-			break;
-		case FATAL:
-			cout << logMsg << "FATAL" << endl;
-			break;
-		default:
-			break;
-	}
-}
-
-void EchoErrno()
-{
-	//
+	const char *arr[10] = {"NORMAL", "WARNING", "FATAL"};
+		
+	int fd = open("./log/httpd.log",\
+			O_CREAT | O_WRONLY | O_APPEND, S_IRUSR | S_IWUSR);
+	char buf[1024];
+	sprintf(buf, "LogMsg:%s,%s\n", logMsg, arr[grade]);
+	write(fd, buf, strlen(buf));
+	close(fd);
 }
 
 //从sock中读取一行
@@ -84,6 +74,7 @@ static int ReadLine(int sock, char *buf, size_t len)
 	return n;
 }
 
+//清除头部信息
 static void ClearHeader(int sock)
 {
 	char buf[_SIZE_];
@@ -96,7 +87,7 @@ static void ClearHeader(int sock)
 }
 
 //处理cgi模式的函数
-static int ExcuCgi(int sock, const char *method, \
+int ExcuCgi(int sock, const char *method, \
 		const char *path, const char *resource)
 {
 	char methodEnv[_SIZE_/16];
@@ -122,6 +113,8 @@ static int ExcuCgi(int sock, const char *method, \
 	//发送应答头部
 	const char* statusLine = "http/1.0 200 ok\r\n";
 	send(sock, statusLine, strlen(statusLine), 0);
+	const char* head = "Content-Type:text/html;charset=ISO-8859-1\r\n";
+	send(sock, head, strlen(head), 0);
 	send(sock, "\r\n", strlen("\r\n"), 0);
 
 	//fork子进程进行程序替换执行文件，利用管道进行进程间通信，传送资源
@@ -130,15 +123,17 @@ static int ExcuCgi(int sock, const char *method, \
 
 	if(pipe(input)<0 || pipe(output)<0)
 	{
-		EchoErrno();
+		ClearHeader(sock);
+		EchoErrno(sock, 500);
 		PrintLog("ExcuCgi pipe error", FATAL);
 		return 9;
 	}
-
+	
 	pid_t pid = fork();
 	if(pid < 0)
 	{
-		EchoErrno();
+		ClearHeader(sock);
+		EchoErrno(sock, 500);
 		PrintLog("ExcuCgi fork error", FATAL);
 		return 10;
 	}
@@ -150,7 +145,6 @@ static int ExcuCgi(int sock, const char *method, \
 		close(sock); //子进程中的sock没有用了，关闭掉，防止错误写入。
 
 		//文件描述符重定向
-
 		dup2(input[0], 0);
 		dup2(output[1], 1);
 
@@ -172,7 +166,7 @@ static int ExcuCgi(int sock, const char *method, \
 
 		//程序替换
 		execl(path, path, NULL);
-		printf("execl is error\n");
+		PrintLog("execl is error", FATAL);
 		exit(1);
 	}
 	else  //father
@@ -198,20 +192,66 @@ static int ExcuCgi(int sock, const char *method, \
 		{
 			send(sock, &c, 1, 0);
 		}
-
 		waitpid(pid, NULL , 0);
 	}
 
 }
 
+void EchoErrno(int sock, int statusCode)
+{
+	const char *filename; 
+	const char *reasonPhrase;//状态码描述
+	switch(statusCode)
+	{
+		case 400:
+			filename = "/errno/errno400.html";
+			reasonPhrase = "Bad Request";
+			break;
+		case 403:
+			filename = "/errno/errno403.html";
+			reasonPhrase = "Forbidden";
+			break;
+		case 404:
+			filename = "/errno/errno404.html";
+			reasonPhrase = "Not Found";
+			break;
+		case 500:
+			filename = "/errno/errno500.html";
+			reasonPhrase = "Internal Server Error";
+			break;
+		case 503:
+			filename = "/errno/errno503.html";
+			reasonPhrase = "Server Unavailable";
+			break;
+		default:
+			PrintLog("应答状态码可能异常", WARNING);
+			filename = "/errno/errno500.html";
+			reasonPhrase = "Internal Server Error";
+			break;
+	}
+
+	struct stat st;
+	stat(filename, &st);
+	int fd = open(filename, O_RDONLY);
+	char buf[_SIZE_];
+
+	sprintf(buf, "HTTP/1.0 %d %s\r\n", statusCode, reasonPhrase);
+	send(sock, buf, strlen(buf), 0);
+	const char* head = "Content-Type: text/html";
+	send(sock, head, strlen(head), 0);
+	send(sock, "\r\n", strlen("\r\n"), 0);
+	sendfile(sock, fd, NULL, st.st_size);
+	close(fd);
+}
+
 //非cgi模式：将指定路径文件发送给客户端
-static int ShowPage(int sock, const char *path, ssize_t size)
+int ShowPage(int sock, const char *path, ssize_t size)
 {
 	int fd = open(path, O_RDONLY);	
 	if(fd < 0)
 	{
 		PrintLog("open file failed", FATAL);
-		EchoErrno();
+		EchoErrno(sock, 404);
 		return 7;
 	}
 	char buf[_SIZE_];
@@ -220,7 +260,7 @@ static int ShowPage(int sock, const char *path, ssize_t size)
 	send(sock, "\r\n", strlen("\r\n"), 0);
 	if(sendfile(sock, fd, NULL, size) < 0)
 	{
-		EchoErrno();
+		EchoErrno(sock, 404);
 		PrintLog("send file failed", FATAL);
 		close(fd);
 		return 8;
@@ -243,7 +283,8 @@ int Handle_Request(int sock)
 	int size = ReadLine(sock, line, sizeof(line));
 	if(size == 0)
 	{
-		EchoErrno();
+		ClearHeader(sock);
+		EchoErrno(sock, 400);
 		PrintLog("request is error", FATAL);
 		ret = 4;
 		goto END;
@@ -291,7 +332,8 @@ int Handle_Request(int sock)
 	}
 	else //既不是GET方法又不是POST方法的先不处理，直接报错
 	{
-		EchoErrno();
+		ClearHeader(sock);
+		EchoErrno(sock, 400);
 		PrintLog("方法既不是GET又不是POST", FATAL);
 		ret = 5;
 		goto END;
@@ -308,8 +350,8 @@ int Handle_Request(int sock)
 	
 	if(stat(path, &st) < 0) //从文件名中获取文件信息保存在stat结构体中。
 	{
-		//ClearHeader(sock);
-		EchoErrno();
+		ClearHeader(sock);
+		EchoErrno(sock, 404);
 		PrintLog("获取path文件信息失败", FATAL);
 		ret = 6;
 		goto END;
@@ -332,6 +374,7 @@ int Handle_Request(int sock)
 	else
 	{
 		ClearHeader(sock);
+		//对于非cgi模式直接进行相应。
 		ret = ShowPage(sock, path, st.st_size);
 	}
 

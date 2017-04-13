@@ -7,6 +7,7 @@
 
 #include"httpd.h"
 
+
 static void Usage(const char *msg)
 {
 	assert(msg);
@@ -28,10 +29,14 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 	int listen_sock = StartUp(argv[1], atoi(argv[2]));
-	
+
+	daemon(1, 0);
+	/*daemon：
+	 * 第一个参数为0的话，会改变守护进程的目录。
+	 * 如果设为0，服务器目录改变，而wwwRoot并没有发生改变，就会出现一直连不上的情况。
+	 */
 	struct sockaddr_in peer;
 	socklen_t len = sizeof(peer);
-
 	while(1)
 	{
 		int conn_sock = accept(listen_sock, (struct sockaddr*)&peer, &len);
