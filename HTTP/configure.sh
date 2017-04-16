@@ -11,14 +11,16 @@ CC=g++
 LIB="-lpthread"
 
 #cgi
-CGI_PATH=${LOCAL_PATH}/cgiOperation/
-CGI_SRC=$(ls $CGI_PATH | grep -E '.cpp$')
-CGI_BIN=cgiOp
+CGI_PATH=${LOCAL_PATH}/cgiOperation
+CGI_SRC=$(ls $CGI_PATH | grep -E '.cpp$' | tr '\n' ' ')
+CGI_BIN=EduManSys
+CGI_INCLUDE=${CGI_PATH}/mysql/include
+CGI_LIB=${CGI_PATH}/mysql/lib
 
 #cgi的Makefile
 cat << EOF > ${CGI_PATH}/Makefile
 ${CGI_BIN}:${CGI_SRC}
-	${CC} -o \$@ \$^
+	${CC} -o \$@ \$^ -I ${CGI_INCLUDE} -L ${CGI_LIB} -lmysqlclient
 .PHONY:clean
 clean:
 	rm -f ${CGI_BIN}
@@ -56,6 +58,7 @@ output:all
 	cp -rf wwwRoot output/
 	mkdir -p output/wwwRoot/cgiBin
 	cp -f $CGI_BIN output/wwwRoot/cgiBin/
+	cp -rf ${CGI_PATH}/mysql/lib output/wwwRoot/cgiBin
 	cp -f httpCtl.sh output/ 
 EOF
 
