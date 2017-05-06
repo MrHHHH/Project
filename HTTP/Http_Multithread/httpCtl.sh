@@ -1,4 +1,4 @@
-#/bin/bash/
+#!/bin/bash
 
 #控制httpd启停的控制脚本
 

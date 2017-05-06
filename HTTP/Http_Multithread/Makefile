@@ -1,7 +1,7 @@
 .PHONY:all
 all:httpd cgi
 
-httpd:/home/xuhuan/study/Project/HTTP/httpd.o /home/xuhuan/study/Project/HTTP/main.o 
+httpd:/home/xuhuan/study/Project/HTTP/Http_Multithread/httpd.o /home/xuhuan/study/Project/HTTP/Http_Multithread/main.o 
 	g++ -o $@ $^ -lpthread
 %.o:%.cpp
 	g++ -c $<
@@ -23,5 +23,5 @@ output:all
 	cp -rf wwwRoot output/
 	mkdir -p output/wwwRoot/cgiBin
 	cp -f EduManSys output/wwwRoot/cgiBin/
-	cp -rf /home/xuhuan/study/Project/HTTP/cgiOperation/mysql/lib output/wwwRoot/cgiBin
+	cp -rf /home/xuhuan/study/Project/HTTP/Http_Multithread/cgiOperation/mysql/lib output/wwwRoot/cgiBin
 	cp -f httpCtl.sh output/ 
