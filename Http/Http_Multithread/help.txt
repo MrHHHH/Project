@@ -1,0 +1,18 @@
+帮助文档：
+运行http服务器的顺序
+
+引入环境变量：为了支持mysql动态库（暂时没有找到将其写入shell脚本的方法）
+cd cgiOperator/ 
+export LD_LABRARY_PATH=./mysql/lib/
+
+1)./configure.sh  
+  用来自动生成Makefile文件
+2)./build.sh:
+  发布
+3)cd output/
+4)./httpCtl.sh -s
+  开始运行
+  ./httpCtl.sh -t
+  结束运行
+  ./httpCtl.sh -rs
+  重启

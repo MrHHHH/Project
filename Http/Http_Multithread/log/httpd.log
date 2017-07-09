@@ -1,1 +1,4 @@
 LogMsg:bind is failed!,FATAL
+LogMsg:listen is success!,NORMAL
+LogMsg:获取path文件信息失败,FATAL
+LogMsg:获取path文件信息失败,FATAL

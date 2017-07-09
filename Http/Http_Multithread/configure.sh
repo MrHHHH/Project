@@ -23,7 +23,7 @@ ${CGI_BIN}:${CGI_SRC}
 	g++ -o \$@ \$^ -I ${CGI_INCLUDE} -L ${CGI_LIB} -lmysqlclient
 .PHONY:clean
 clean:
-	rm -f ${CGI_BIN}
+	rm -f ${CGI_BIN} Makefile
 
 .PHONY:output
 output:
@@ -47,7 +47,7 @@ cgi:
 
 .PHONY:clean
 clean:
-	rm -rf *.o ${SERVER_BIN} ${CGI_BIN} output; cd cgiOperation; make clean; cd -
+	rm -rf *.o ${SERVER_BIN} ${CGI_BIN} output httpd.pid Makefile; cd cgiOperation; make clean; cd -
 
 .PHONY:output
 output:all
