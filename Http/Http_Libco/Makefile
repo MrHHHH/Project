@@ -32,23 +32,19 @@ LINKS += -g -L./lib -lcolib -lpthread -ldl
 COLIB_OBJS=co_routine.o co_hook_sys_call.o coctx_swap.o coctx.o
 #co_swapcontext.o
 
-PROGS = colib example_poll http_server example_echocli example_thread  
+PROGS = colib http_server  
 
 all:$(PROGS)
 
 colib:libcolib.a libcolib.so
 
-libcolib.a: $(BUILDEXE) 
+libcolib.a: $(COLIB_OBJS)
+	$(ARSTATICLIB)
+libcolib.so: $(COLIB_OBJS)
+	$(BUILDSHARELIB)
 
-example_echocli:example_echocli.o
+http_server:http_server.o httpd.o 
 	$(BUILDEXE) 
-
-example_thread:example_thread.o
-	$(BUILDEXE) 
-
-example_poll:example_poll.o
-	$(BUILDEXE) 
-
 
 dist: clean libco-$(version).src.tar.gz
 

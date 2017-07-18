@@ -53,7 +53,7 @@ void PrintLog(const char *logMsg, logGrade grade)
 static int ReadLine(int sock, char *buf, size_t len)
 {
 	assert(buf);
-	size_t n = 0;
+	int n = 0;
 	char c = 0;
 	ssize_t s = 0;
 	while(n < len-1 && c != '\n')
@@ -194,7 +194,7 @@ int ExcuCgi(int sock, const char *method, \
 		}
 		waitpid(pid, NULL , 0);
 	}
-	return 0;
+
 }
 
 void EchoErrno(int sock, int statusCode)

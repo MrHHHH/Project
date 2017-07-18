@@ -16,10 +16,8 @@
 * limitations under the License.
 */
 
-//本文件由修改example_echosvr.cpp
-
+#include "httpd.h"
 #include "co_routine.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -53,13 +51,13 @@ static int SetNonBlock(int iSock)
     return ret;
 }
 
+//任务协程
 static void *readwrite_routine( void *arg )
 {
 
 	co_enable_hook_sys();
 
 	task_t *co = (task_t*)arg;
-	char buf[ 1024 * 16 ];
 	for(;;)
 	{
 		if( -1 == co->fd )
@@ -74,13 +72,14 @@ static void *readwrite_routine( void *arg )
 
 		for(;;)
 		{
+			//监听fd事件直到发生
 			struct pollfd pf = { 0 };
 			pf.fd = fd;
 			pf.events = (POLLIN|POLLERR|POLLHUP);
 			co_poll( co_get_epoll_ct(),&pf,1,1000);
 
-			//修改位置
-			Handle_Request( fd );
+			//处理接收到的连接
+			Handle_Request(fd);
 		}
 
 	}
@@ -181,6 +180,7 @@ static int CreateTcpSocket(const unsigned short shPort /* = 0 */,const char *psz
 
 int main(int argc,char *argv[])
 {
+	//接收四个参数：IP PORT 协程数 进程数
 	const char *ip = argv[1];
 	int port = atoi( argv[2] );
 	int cnt = atoi( argv[3] );
@@ -206,6 +206,7 @@ int main(int argc,char *argv[])
 		}
 		for(int i=0;i<cnt;i++)
 		{
+			//开启任务协程
 			task_t * task = (task_t*)calloc( 1,sizeof(task_t) );
 			task->fd = -1;
 
@@ -213,6 +214,7 @@ int main(int argc,char *argv[])
 			co_resume( task->co );
 
 		}
+		//开启accept协程
 		stCoRoutine_t *accept_co = NULL;
 		co_create( &accept_co,NULL,accept_routine,0 );
 		co_resume( accept_co );

@@ -8,8 +8,7 @@
 #ifndef __HTTPD_H__
 #define __HTTPD_H__
 
-#include <iostream>
-#include <cassert>
+#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <pthread.h>
@@ -23,18 +22,17 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <cstring>
-using namespace std;
+#include <string.h>
 
 #define _SIZE_ (1024*4)
 #define _STATUS_SIZE_ 20
 //日志等级
-enum logGrade
+typedef enum logGrade
 {
 	NORMAL,
 	WARNING,
 	FATAL,
-};
+}logGrade;
 
 
 int StartUp(const char *ip, int port);
