@@ -32,9 +32,9 @@ LINKS += -g -L./lib -lcolib -lpthread -ldl
 COLIB_OBJS=co_routine.o co_hook_sys_call.o coctx_swap.o coctx.o
 #co_swapcontext.o
 
-PROGS = colib http_server  
+PROGS = colib http_server
 
-all:$(PROGS)
+all:$(PROGS) cgi
 
 colib:libcolib.a libcolib.so
 
@@ -45,6 +45,10 @@ libcolib.so: $(COLIB_OBJS)
 
 http_server:http_server.o httpd.o 
 	$(BUILDEXE) 
+
+.PHONY:cgi
+cgi:
+	cd cgiOperation; make; cd - 
 
 dist: clean libco-$(version).src.tar.gz
 
@@ -57,4 +61,14 @@ libco-$(version).src.tar.gz:
 clean:
 	$(CLEAN) *.o $(PROGS)
 	rm -fr MANIFEST lib solib libco-$(version).src.tar.gz libco-$(version)
+	rm -rf output/
+	rm -f cgiOperation/Add
 
+.PHONY:output
+output:all
+	mkdir output/
+	cp -rf solib output/
+	cp http_server output/
+	cp -rf wwwRoot output/
+	mkdir -p output/wwwRoot/cgiBin
+	cp -f cgiOperation/Add output/wwwRoot/cgiBin/
