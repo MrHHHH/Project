@@ -69,6 +69,8 @@ output:all
 	mkdir output/
 	cp -rf solib output/
 	cp http_server output/
+	cp httpCtl.sh output/
 	cp -rf wwwRoot output/
+	cp -rf conf/ output/
 	mkdir -p output/wwwRoot/cgiBin
 	cp -f cgiOperation/Add output/wwwRoot/cgiBin/
