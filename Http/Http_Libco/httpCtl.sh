@@ -1,6 +1,6 @@
 #/bin/bash/
 
-#控制httpd启停的控制脚本
+#控制http_server启停的控制脚本
 
 ROOT_PATH=$(pwd)
 BIN=${ROOT_PATH}/http_server
