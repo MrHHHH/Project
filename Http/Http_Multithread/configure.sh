@@ -30,7 +30,6 @@ output:
 	cp $CGI_BIN ..
 EOF
 
-
 #主Makefile生成httpd
 cat <<EOF > Makefile
 .PHONY:all
