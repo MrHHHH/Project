@@ -38,7 +38,6 @@ function Stop()
 	fi
 	
 	killall $BIN_NAME
-	rm -f $PID
 	printf "stop success!!! httpd is stoped. pid is $pid\n"
 }
 
