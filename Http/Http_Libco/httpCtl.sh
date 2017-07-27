@@ -4,7 +4,7 @@
 
 ROOT_PATH=$(pwd)
 BIN=${ROOT_PATH}/http_server
-CONF=${ROOT_PATH}/conf/httpd.conf
+CONF=${ROOT_PATH}/conf/http_server.conf
 BIN_NAME=`basename $BIN`
 
 ctl=$(basename $0)

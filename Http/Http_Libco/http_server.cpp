@@ -80,23 +80,25 @@ static void *readwrite_routine( void *arg )
 
 			//处理接收到的连接
 			Handle_Request(fd);
+			break;  //修复服务器性能低
 		}
 
 	}
 	return 0;
 }
+
 int co_accept(int fd, struct sockaddr *addr, socklen_t *len );
 static void *accept_routine( void * )
 {
 	co_enable_hook_sys();
-	printf("accept_routine\n");
+//	printf("accept_routine\n");
 	fflush(stdout);
 	for(;;)
 	{
 		//printf("pid %ld g_readwrite.size %ld\n",getpid(),g_readwrite.size());
 		if( g_readwrite.empty() )
 		{
-			printf("empty\n"); //sleep
+		//	printf("empty\n"); //sleep
 			struct pollfd pf = { 0 };
 			pf.fd = -1;
 			poll( &pf,1,1000);
@@ -176,7 +178,6 @@ static int CreateTcpSocket(const unsigned short shPort /* = 0 */,const char *psz
 	}
 	return fd;
 }
-
 
 int main(int argc,char *argv[])
 {

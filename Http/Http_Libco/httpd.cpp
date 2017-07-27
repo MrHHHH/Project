@@ -53,37 +53,46 @@ void PrintLog(const char *logMsg, logGrade grade)
 static int ReadLine(int sock, char *buf, size_t len)
 {
 	assert(buf);
-	size_t n = 0;
-	char c = 0;
-	ssize_t s = 0;
-	while(n < len-1 && c != '\n')
+	int i = 0;
+	char c = '\0';
+	int n;
+
+	while ((i < len - 1) && (c != '\n'))
 	{
-		s = recv(sock, &c, 1, 0);
-		//  \r和\r\n都是换行
-		if(s > 0 && c == '\r')
-		{
-			s = recv(sock, &c, 1, MSG_PEEK);
-			if(s > 0 && c == '\n')
-				s = recv(sock, &c, 1, 0);
-			else
-				c = '\n';
+		n = recv(sock, &c, 1, 0);
+		/* DEBUG printf("%02X\n", c); */
+		/* \n 和 \r\n 都用来换行*/
+		if (n > 0)
+		 {
+			if (c == '\r')
+			{
+				n = recv(sock, &c, 1, MSG_PEEK);
+				/* DEBUG printf("%02X\n", c); */
+				if ((n > 0) && (c == '\n'))
+					recv(sock, &c, 1, 0);
+				else
+					c = '\n';
+			}
+			buf[i] = c;
+			i++;
 		}
-		buf[n++] = c;
+		else
+			c = '\n';  //修bug：recv接收失败，直接跳出循环。
 	}
-	buf[n] = '\0';
-	return n;
+	
+	buf[i] = '\0';
+	return i;
 }
 
 //清除头部信息
 static void ClearHeader(int sock)
 {
-	char buf[_SIZE_];
-	int size = 0;
-	
-	do
-	{
-		size = ReadLine(sock, buf, sizeof(buf));
-	}while(size!=1 || strcmp(buf, "\n")!=0);   //注意逻辑
+	int numchars = 1;
+	char buf[1024];
+
+	buf[0] = 'A'; buf[1] = '\0';
+	while ((numchars > 0) && strcmp("\n", buf))  /* read & discard headers */
+		numchars = ReadLine(sock, buf,sizeof(buf));
 }
 
 //处理cgi模式的函数
@@ -179,12 +188,9 @@ int ExcuCgi(int sock, const char *method, \
 		char c = '\0';
 		if(strcasecmp(method, "POST") == 0)
 		{
-			int i = 0;
-			for( ; i < contentLength; ++i)
-			{
-				recv(sock, &c, 1, 0);
-				write(input[1], &c, 1);
-			}
+			char buf[contentLength];
+			recv(sock, buf, contentLength, 0);
+			write(input[1], buf, sizeof(buf));
 		}
 
 		//从管道中读取内容发送给sock
@@ -256,8 +262,11 @@ int ShowPage(int sock, const char *path, ssize_t size)
 	}
 	char buf[_SIZE_];
 	sprintf(buf, "HTTP/1.0 200 OK\r\n");
-	send(sock, buf, strlen(buf), 0);
-	send(sock, "\r\n", strlen("\r\n"), 0);
+	write(sock, buf, strlen(buf));
+	sprintf(buf, "Content-Type: text/html\r\n");
+	write(sock, buf, strlen(buf));
+	sprintf(buf, "\r\n");
+	write(sock, buf, strlen(buf));
 	if(sendfile(sock, fd, NULL, size) < 0)
 	{
 		EchoErrno(sock, 404);
@@ -306,7 +315,7 @@ int Handle_Request(int sock)
 	}
 	url[i] = 0;
 	
-
+	//printf("head:%s",line);
 	//设置cgi模式
 	//1.POST方法肯定为cgi模式，
 	//2.GET方法如果url中有?(即携带资源)则使用cgi模式, 
@@ -348,7 +357,7 @@ int Handle_Request(int sock)
 	
 	struct stat st;
 	
-	if(stat(path, &st) < 0) //从文件名中获取文件信息保存在stat结构体中。
+	if(stat(path, &st) < 0) //stat:从文件名中获取文件信息保存在stat结构体中。
 	{
 		ClearHeader(sock);
 		EchoErrno(sock, 404);
