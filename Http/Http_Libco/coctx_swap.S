@@ -52,7 +52,15 @@ struct coctx_t
 };
 */
 
-//假设现在要由协程a切换到协程b
+/* 假设现在要由协程a切换到协程b */
+/*切换原理：(注:这里的返回地址指对应协程coctx_swap函数的返回地址)
+整体来看就是cpu寄存器esp和eip的保存和恢复，因为esp决定了运行的栈空间，eip决定了程序执行的指令位置。
+1.将a协程的栈顶ESP和返回地址保存到coctx_t结构体的regs[0]和regs[1]
+2.将b协程的栈顶ESP和返回地址从他的coctx_t结构体的regs[0]和regs[1]中恢复出来
+3.ret：程序跳转到b协程的返回地址处继续运行
+*/
+
+
 //32位
 #if defined(__i386__)
 	/*执行之前，函数先将两个参数和返回地址压栈*/
@@ -71,7 +79,7 @@ struct coctx_t
 	movl 4(%esp), %eax  //eax存储协程a传进来的coctx_t*
 
 	/*保存要切出协程a的运行状态*/
-	movl (%esp), %ecx  //ecx存储a的返回地址
+	movl (%esp), %ecx  //ecx存储a的返回地址 
 	movl %ecx, _eip(%eax) //将a的返回地址放入a的regs[1]
 
 	leal 4(%esp), %ecx //ecx存储函数开始压参时第一个参数a在内存中的地址，相当于协程a的栈顶esp。
@@ -97,7 +105,7 @@ struct coctx_t
 	leal 4(%esp),%esp //esp指向协程b的返回地址，就是上面push进去的
 	
 	movl $0, %eax
-	ret  //call b的返回地址  跳转到b协程执行
+	ret  //popl %eip <- b的返回地址  跳转到b协程coctx_swap函数的返回地址处继续执行b协程
 	//利用ret命令修改指令寄存器 %eip ，通过修改 %eip 来实现程序运行逻辑跳转。
 
 #elif defined(__x86_64__)
