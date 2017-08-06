@@ -47,10 +47,15 @@ using namespace std;
 stCoRoutine_t *GetCurrCo( stCoRoutineEnv_t *env );
 struct stCoEpoll_t;
 
+/* 保存协程的运行环境，与线程绑定，同一线程下的所有协程共享该结构 */
 struct stCoRoutineEnv_t
 {
+	/* 协程栈，纪录协程的调用链，管理协程的运行 */
 	stCoRoutine_t *pCallStack[ 128 ];
+	/* resume启动一个协程+1 , yield挂起协程-1 */
 	int iCallStackSize;
+	
+	/* epoll抽象体，管理所有事件 */
 	stCoEpoll_t *pEpoll;
 };
 //int socket(int domain, int type, int protocol);
@@ -238,20 +243,29 @@ void inline Join( TLink*apLink,TLink *apOther )
 // ----------------------------------------------------------------------------
 struct stTimeoutItemLink_t;
 struct stTimeoutItem_t;
+
+/* 全局的epoll抽象体:所有线程共享一个 */
 struct stCoEpoll_t
 {
-	int iEpollFd;
+	/* epoll_create 创建的epoll文件描述符 */
+	int iEpollFd; 
+
+	/* 一次epoll_wait最多返回的事件个数，epoll_wait的第三个参数 */
 	static const int _EPOLL_SIZE = 1024 * 10;
 
+	/* 时间轮定时器 */
 	struct stTimeout_t *pTimeout;
 
+	/* 保存已经超时的事件列表 */
 	struct stTimeoutItemLink_t *pstTimeoutList;
 
+	/* 保存epoll_wait得到的就绪事件和定时器超时事件 */
 	struct stTimeoutItemLink_t *pstActiveList;
 
 };
 typedef void (*OnPreparePfn_t)( stTimeoutItem_t *,struct epoll_event &ev, stTimeoutItemLink_t *active );
 typedef void (*OnProcessPfn_t)( stTimeoutItem_t *);
+/* 监听事件的父类，提供链表机制和超时属性，以及一些事件发生后执行的函数指针 */
 struct stTimeoutItem_t
 {
 
@@ -259,15 +273,17 @@ struct stTimeoutItem_t
 	{
 		eMaxTimeout = 20 * 1000 //20s
 	};
+	/* 链表相关变量 */
 	stTimeoutItem_t *pPrev;
 	stTimeoutItem_t *pNext;
 	stTimeoutItemLink_t *pLink;
 
 	unsigned long long ullExpireTime;
 
+	/* 事件发生后执行的函数指针 */
 	OnPreparePfn_t pfnPrepare;
 	OnProcessPfn_t pfnProcess;
-
+	/* 注册事件的协程，用来返回到该协程 */
 	void *pArg; // routine 
 	bool bTimeout;
 };
@@ -277,6 +293,8 @@ struct stTimeoutItemLink_t
 	stTimeoutItem_t *tail;
 
 };
+
+
 struct stTimeout_t
 {
 	stTimeoutItemLink_t *pItems;
@@ -399,16 +417,20 @@ struct stCoRoutine_t *co_create_env( stCoRoutineEnv_t * env,pfn_co_routine_t pfn
 
 	return lp;
 }
+
+//创建协程
 int co_create( stCoRoutine_t **ppco,const stCoRoutineAttr_t *attr,pfn_co_routine_t pfn,void *arg )
 {
 	if( !co_get_curr_thread_env() ) 
 	{
 		co_init_curr_thread_env();
 	}
+	//初始化协程环境
 	stCoRoutine_t *co = co_create_env( co_get_curr_thread_env(),pfn,arg );
 	*ppco = co;
 	return 0;
 }
+
 void co_free( stCoRoutine_t *co )
 {
 	free( co );
@@ -420,6 +442,7 @@ void co_release( stCoRoutine_t *co )
 		free( co );
 	}
 }
+
 void co_resume( stCoRoutine_t *co )
 {
 	stCoRoutineEnv_t *env = co->env;
@@ -434,6 +457,7 @@ void co_resume( stCoRoutine_t *co )
 
 
 }
+
 void co_yield_env( stCoRoutineEnv_t *env )
 {
 	
@@ -445,25 +469,25 @@ void co_yield_env( stCoRoutineEnv_t *env )
 	coctx_swap( &curr->ctx, &last->ctx );
 }
 
+//协程切换
 void co_yield_ct()
 {
-
 	co_yield_env( co_get_curr_thread_env() );
 }
+
 void co_yield( stCoRoutine_t *co )
 {
 	co_yield_env( co->env );
 }
 
 
-
 //int poll(struct pollfd fds[], nfds_t nfds, int timeout);
-// { fd,events,revents }
+//struct pollfd { fd,events,revents }
 struct stPollItem_t ;
 struct stPoll_t : public stTimeoutItem_t 
 {
-	struct pollfd *fds;
-	nfds_t nfds; // typedef unsigned long int nfds_t;
+	struct pollfd *fds; //监听的文件描述符集
+	nfds_t nfds; // typedef unsigned long int nfds_t; 文件描述符集中的元素个数
 
 	stPollItem_t *pPollItems;
 
@@ -524,6 +548,7 @@ void co_init_curr_thread_env()
 
 	coctx_init( &self->ctx );
 
+	/* 给记录协程调用链的栈里压入本协程 */
 	env->pCallStack[ env->iCallStackSize++ ] = self;
 
 	stCoEpoll_t *ev = AllocEpoll();
@@ -567,6 +592,7 @@ void co_eventloop( stCoEpoll_t *ctx,pfn_co_eventloop_t pfn,void *arg )
 
 	for(;;)
 	{
+		/* 等待IO就绪事件, 最大等待时间设置为1毫秒,就绪的事件被放入第二个参数result中 */
 		int ret = epoll_wait( ctx->iEpollFd,result,stCoEpoll_t::_EPOLL_SIZE, 1 );
 
 		stTimeoutItemLink_t *active = (ctx->pstActiveList);
@@ -574,10 +600,11 @@ void co_eventloop( stCoEpoll_t *ctx,pfn_co_eventloop_t pfn,void *arg )
 
 		memset( active,0,sizeof(stTimeoutItemLink_t) );
 		memset( timeout,0,sizeof(stTimeoutItemLink_t) );
-
+		/* 循环处理epoll_wait获取到的就绪事件 */
 		for(int i=0;i<ret;i++)
 		{
 			stTimeoutItem_t *item = (stTimeoutItem_t*)result[i].data.ptr;
+			/*pfnPrepare:将事件从epoll中解除，并将事件添加入active队列 */
 			if( item->pfnPrepare )
 			{
 				item->pfnPrepare( item,result[i],active );
@@ -589,6 +616,7 @@ void co_eventloop( stCoEpoll_t *ctx,pfn_co_eventloop_t pfn,void *arg )
 		}
 
 
+		/* 从时间轮获取超时事件，放入timeout超时队列中 */
 		unsigned long long now = GetTickMS();
 		TakeAllTimeout( ctx->pTimeout,now,timeout );
 
@@ -600,13 +628,16 @@ void co_eventloop( stCoEpoll_t *ctx,pfn_co_eventloop_t pfn,void *arg )
 			lp = lp->pNext;
 		}
 
+		/* 将超时事件合并到active队列中(在这之前只有就绪事件) */
 		Join<stTimeoutItem_t,stTimeoutItemLink_t>( active,timeout );
 
+		/* 循环处理就绪事件和超时事件 */
 		lp = active->head;
 		while( lp )
 		{
 
 			PopHead<stTimeoutItem_t,stTimeoutItemLink_t>( active );
+			/* 处理事件的函数，该函数会切换到注册信号的那个协程中执行 */
 			if( lp->pfnProcess )
 			{
 				lp->pfnProcess( lp );
@@ -670,7 +701,7 @@ stCoRoutine_t *GetCurrThreadCo( )
 }
 
 
-
+/* 创建并注册事件监听集合 */
 int co_poll( stCoEpoll_t *ctx,struct pollfd fds[], nfds_t nfds, int timeout )
 {
 	
@@ -760,6 +791,7 @@ void SetEpoll( stCoRoutineEnv_t *env,stCoEpoll_t *ev )
 {
 	env->pEpoll = ev;
 }
+
 stCoEpoll_t *co_get_epoll_ct()
 {
 	if( !co_get_curr_thread_env() )

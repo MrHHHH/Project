@@ -32,14 +32,18 @@
 #include <unistd.h>
 
 using namespace std;
+
+/*任务结点*/
 struct task_t
 {
-	stCoRoutine_t *co;
-	int fd;
+	stCoRoutine_t *co;  //协程控制块
+	int fd;             //文件描述符
 };
 
-static stack<task_t*> g_readwrite;
+static stack<task_t*> g_readwrite; //保存当前进程下的任务协程
 static int g_listen_fd = -1;
+
+//设置非阻塞
 static int SetNonBlock(int iSock)
 {
     int iFlags;
@@ -80,7 +84,7 @@ static void *readwrite_routine( void *arg )
 
 			//处理接收到的连接
 			Handle_Request(fd);
-			break;  //修复服务器性能低
+			break; 
 		}
 
 	}
@@ -88,6 +92,8 @@ static void *readwrite_routine( void *arg )
 }
 
 int co_accept(int fd, struct sockaddr *addr, socklen_t *len );
+
+/* */
 static void *accept_routine( void * )
 {
 	co_enable_hook_sys();
@@ -99,12 +105,13 @@ static void *accept_routine( void * )
 		if( g_readwrite.empty() )
 		{
 		//	printf("empty\n"); //sleep
+			
+			/* 如果当前任务队列为空，等待一秒, 一直循环，直到任务队列不为空 */
 			struct pollfd pf = { 0 };
 			pf.fd = -1;
 			poll( &pf,1,1000);
 
 			continue;
-
 		}
 		struct sockaddr_in addr; //maybe sockaddr_un;
 		memset( &addr,0,sizeof(addr) );
@@ -125,6 +132,8 @@ static void *accept_routine( void * )
 			continue;
 		}
 		SetNonBlock( fd );
+
+		/*弹出一个任务协程来处理接收到连接*/
 		task_t *co = g_readwrite.top();
 		co->fd = fd;
 		g_readwrite.pop();
@@ -132,6 +141,7 @@ static void *accept_routine( void * )
 	}
 	return 0;
 }
+
 
 static void SetAddr(const char *pszIP,const unsigned short shPort,struct sockaddr_in &addr)
 {
@@ -144,7 +154,7 @@ static void SetAddr(const char *pszIP,const unsigned short shPort,struct sockadd
 		|| 0 == strcmp(pszIP,"*") 
 	  )
 	{
-		nIP = htonl(INADDR_ANY);
+		nIP = htonl(INADDR_ANY); //INADDR_ANY:0.0.0.0,表示所有地址，任意地址
 	}
 	else
 	{
@@ -154,6 +164,7 @@ static void SetAddr(const char *pszIP,const unsigned short shPort,struct sockadd
 
 }
 
+/* 创建TCP连接的socket套接字 参数：1.port 2.ip 3.端口是否可复用*/
 static int CreateTcpSocket(const unsigned short shPort /* = 0 */,const char *pszIP /* = "*" */,bool bReuse /* = false */)
 {
 	int fd = socket(AF_INET,SOCK_STREAM, IPPROTO_TCP);
@@ -193,6 +204,7 @@ int main(int argc,char *argv[])
 
 	SetNonBlock( g_listen_fd );
 
+	//创建proncnt个进程，每个进程有cnt个任务协程和一个accept协程
 	for(int k=0;k<proccnt;k++)
 	{
 
@@ -220,6 +232,7 @@ int main(int argc,char *argv[])
 		co_create( &accept_co,NULL,accept_routine,0 );
 		co_resume( accept_co );
 
+		//设置事件循环机制,调用epoll循环监听事件
 		co_eventloop( co_get_epoll_ct(),0,0 );
 
 		exit(0);

@@ -26,6 +26,8 @@ struct stCoSpec_t
 {
 	void *value;
 };
+
+/*记录协程的各种信息，可以认为就是协程控制块*/
 struct stCoRoutine_t
 {
 	stCoRoutineEnv_t *env;

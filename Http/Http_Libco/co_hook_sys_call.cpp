@@ -701,6 +701,8 @@ int GetThreadRWLockCnt( )
 //~/QQMail/comm2/svrkit> vi skutils.cpp 
 
 //gzrd_Lib_CPP_Version_ID--start
+
+/* 设置启动hook系统调用 */
 void co_enable_hook_sys() //这函数必须在这里,否则本文件会被忽略！！！
 {
 	stCoRoutine_t *co = GetCurrThreadCo();

@@ -27,6 +27,7 @@ struct coctx_param_t
 	const void *s1;
 	const void *s2;
 };
+
 struct coctx_t
 {
 	void *regs[ 5 ];
