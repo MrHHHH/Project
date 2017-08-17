@@ -482,7 +482,7 @@ void benchcore(const char *host,const int port,const char *req)
     nexttry:
 	while(1)
     {
-		//默认为0，收到信号则为1
+		//默认为0，接收到alarm信号，alarm信号处理函数将其设置为1，函数返回。
         if(timerexpired)
         {
             if(failed>0)
